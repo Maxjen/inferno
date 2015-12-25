@@ -2,7 +2,6 @@ use std::hash::{Hash, SipHasher, Hasher};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use std::cell::RefCell;
-use std::cell::Cell;
 use super::texture_atlas::TextureAtlas;
 use image;
 use image::GenericImage;
@@ -10,8 +9,7 @@ use std::path::Path;
 use std::result;
 use std::fmt;
 use std::error::Error;
-use glium;
-use glium::texture::{Texture2d, TextureCreationError};
+use glium::texture::TextureCreationError;
 
 pub type Result<T> = result::Result<T, ResourceManagerError>;
 
@@ -81,7 +79,7 @@ impl Error for ResourceManagerError {
     fn description(&self) -> &str {
         match *self {
             ResourceManagerError::Image(ref err) => err.description(),
-            ResourceManagerError::Texture(ref err) => &"Texture creation Error",
+            ResourceManagerError::Texture(_) => &"Texture creation Error",
             ResourceManagerError::TooLarge => &"Image dimension too large!",
         }
     }
@@ -89,7 +87,7 @@ impl Error for ResourceManagerError {
     fn cause(&self) -> Option<&Error> {
         match *self {
             ResourceManagerError::Image(ref err) => Some(err),
-            ResourceManagerError::Texture(ref err) => None,
+            ResourceManagerError::Texture(_) => None,
             _ => None,
         }
     }
@@ -152,7 +150,7 @@ impl ResourceManager {
         let mut uv_max: (f32, f32) = (0.0, 0.0);
         let pixel_dimension = 1.0f32 / ATLAS_DIMENSION as f32;
 
-        let mut attempt_set_region = |this: &mut ResourceManager, uv_min: &mut (f32, f32), uv_max: &mut (f32, f32)| -> bool {
+        let attempt_set_region = |this: &mut ResourceManager, uv_min: &mut (f32, f32), uv_max: &mut (f32, f32)| -> bool {
             let mut atlas = this.current_atlas.borrow_mut();
             if let Some(region) = atlas.get_region(width as usize, height as usize) {
                 atlas.set_region(region.0, region.1, region.2, region.3, &img.raw_pixels(), width as usize * 4);
@@ -163,7 +161,7 @@ impl ResourceManager {
             return false;
         };
 
-        let mut success = false;
+        let mut success;
         success = attempt_set_region(self, &mut uv_min, &mut uv_max);
         if !success {
             self.current_atlas = Rc::new(RefCell::new(TextureAtlas::new(ATLAS_DIMENSION, ATLAS_DIMENSION, 4)));

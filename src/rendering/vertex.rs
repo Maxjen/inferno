@@ -1,5 +1,3 @@
-use glium;
-
 #[derive(Copy, Clone)]
 pub struct SpriteVertex {
     pub position: [f32; 2],
