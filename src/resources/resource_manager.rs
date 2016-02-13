@@ -124,14 +124,10 @@ impl Font {
             Ok(_) => {}
         };
 
-        //let font_data = include_bytes!("Gudea-Regular.ttf");
         let collection = FontCollection::from_bytes(font_data);
         let font = collection.into_font().unwrap();
 
         let scale = Pixels(self.size);
-
-        /*let v_metrics = font.v_metrics(scale);
-        println!("v_metrics {} {}", v_metrics.ascent, v_metrics.descent);*/
 
         for i in 0..129 {
             let c = (i as u8) as char;
@@ -140,60 +136,41 @@ impl Font {
                 None => continue,
             };
             let g = g.scaled(scale);
-            let exact_bounding_box = match g.exact_bounding_box() {
-                Some(exact_bounding_box) => exact_bounding_box,
-                None => continue,
-            };
-            if c == 'P' {
-                println!("exact");
-                println!("{:?}", exact_bounding_box);
-            }
-            let pos_x: f32 = -(exact_bounding_box.min.x as f32).floor();
-            let pos_y: f32 = (exact_bounding_box.max.y as f32).ceil();
+            if let Some(exact_bounding_box) = g.exact_bounding_box() {
+                let pos_x: f32 = -(exact_bounding_box.min.x as f32).floor();
+                let pos_y: f32 = (exact_bounding_box.max.y as f32).ceil();
+                let g = g.positioned(point(pos_x, pos_y));
+                let pixel_bounding_box = match g.pixel_bounding_box() {
+                    Some(pixel_bounding_box) => pixel_bounding_box,
+                    None => continue,
+                };
+                let width = pixel_bounding_box.max.x as usize;
+                let height = pixel_bounding_box.max.y as usize;
+                let mut buf: Vec<u8> = vec![0; (width + 1) * (height + 1)];
+                g.draw(|x, y, v| {
+                    buf[x as usize + y as usize * width] = (v * 255.0) as u8;
+                });
+                let mut atlas = self.atlas.borrow_mut();
+                let region = match atlas.get_region(width, height) {
+                    Some(region) => region,
+                    None => continue,
+                };
+                atlas.set_region(region.0, region.1, region.2, region.3, &buf, width as usize);
 
-            let g2 = g.clone();
-            let g2 = g2.positioned(point(0.0, 0.0));
-            let pbb = match g2.pixel_bounding_box() {
-                Some(pbb) => pbb,
-                None => continue,
-            };
-            if c == 'P' {
-                println!("pixel");
-                println!("{:?}", pbb);
+                let mut glyph = Glyph::new();
+                glyph.uv_min = (region.0 as f32 / FONT_ATLAS_DIMENSION as f32, region.1 as f32 / FONT_ATLAS_DIMENSION as f32);
+                glyph.uv_max = ((region.0 as f32 + width as f32) / FONT_ATLAS_DIMENSION as f32, (region.1 as f32 + height as f32)  / FONT_ATLAS_DIMENSION as f32);
+                glyph.width = region.2 as f32;
+                glyph.height = region.3 as f32;
+                glyph.offset = (-pos_x, pos_y);
+                glyph.advance_x = g.h_metrics().advance_width;
+                self.glyphs.borrow_mut().insert(c, glyph);
+            } else {
+                // for whitespace characters
+                let mut glyph = Glyph::new();
+                glyph.advance_x = g.h_metrics().advance_width;
+                self.glyphs.borrow_mut().insert(c, glyph);
             }
-
-            let g = g.positioned(point(pos_x, pos_y));
-            let pixel_bounding_box = match g.pixel_bounding_box() {
-                Some(pixel_bounding_box) => pixel_bounding_box,
-                None => continue,
-            };
-            if c == 'P' {
-                println!("pixel2");
-                println!("{:?}\n", pixel_bounding_box);
-                let h_metrics = g.h_metrics();
-                println!("left {}, advance {}", h_metrics.left_side_bearing, h_metrics.advance_width);
-            }
-            let width = pixel_bounding_box.max.x as usize;
-            let height = pixel_bounding_box.max.y as usize;
-            let mut buf: Vec<u8> = vec![0; (width + 1) * (height + 1)];
-            g.draw(|x, y, v| {
-                buf[x as usize + y as usize * width] = (v * 255.0) as u8;
-            });
-            let mut atlas = self.atlas.borrow_mut();
-            let region = match atlas.get_region(width, height) {
-                Some(region) => region,
-                None => continue,
-            };
-            atlas.set_region(region.0, region.1, region.2, region.3, &buf, width as usize);
-
-            let mut glyph = Glyph::new();
-            glyph.uv_min = (region.0 as f32 / FONT_ATLAS_DIMENSION as f32, region.1 as f32 / FONT_ATLAS_DIMENSION as f32);
-            glyph.uv_max = ((region.0 as f32 + width as f32) / FONT_ATLAS_DIMENSION as f32, (region.1 as f32 + height as f32)  / FONT_ATLAS_DIMENSION as f32);
-            glyph.width = region.2 as f32;
-            glyph.height = region.3 as f32;
-            glyph.offset = (-pos_x, pos_y);
-            glyph.advance_x = g.h_metrics().advance_width;
-            self.glyphs.borrow_mut().insert(c, glyph);
 
             for c_other in self.glyphs.borrow().keys() {
                 let kerning1 = font.pair_kerning(scale, c, *c_other);

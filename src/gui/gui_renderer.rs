@@ -247,6 +247,7 @@ impl Text {
         let mut x = self.x;
         let mut y;
 
+        let mut last = None;
         for c in self.text.chars() {
             let glyphs = self.font.glyphs.borrow();
             let glyph = match glyphs.get(&c) {
@@ -262,32 +263,38 @@ impl Text {
             x += offset_x;
             y = self.y + offset_y;
 
-            let vertices = [
-                SpriteVertex {
-                    position: [x, y],
-                    tex_coords: [u_min, v_min],
-                    color: [r, g, b, a],
-                },
-                SpriteVertex {
-                    position: [x + width, y],
-                    tex_coords: [u_max, v_min],
-                    color: [r, g, b, a],
-                },
-                SpriteVertex {
-                    position: [x, y - height],
-                    tex_coords: [u_min, v_max],
-                    color: [r, g, b, a],
-                },
-                SpriteVertex {
-                    position: [x + width, y - height],
-                    tex_coords: [u_max, v_max],
-                    color: [r, g, b, a],
-                },
-            ];
-            let indices: [u32; 6] = [0, 2, 1, 1, 2, 3];
-            batch.add_font_triangles(self.font.atlas.clone(), &vertices, &indices);
-
-            x += glyph.advance_x;
+            if width != 0.0 {
+                let vertices = [
+                    SpriteVertex {
+                        position: [x, y],
+                        tex_coords: [u_min, v_min],
+                        color: [r, g, b, a],
+                    },
+                    SpriteVertex {
+                        position: [x + width, y],
+                        tex_coords: [u_max, v_min],
+                        color: [r, g, b, a],
+                    },
+                    SpriteVertex {
+                        position: [x, y - height],
+                        tex_coords: [u_min, v_max],
+                        color: [r, g, b, a],
+                    },
+                    SpriteVertex {
+                        position: [x + width, y - height],
+                        tex_coords: [u_max, v_max],
+                        color: [r, g, b, a],
+                    },
+                ];
+                let indices: [u32; 6] = [0, 2, 1, 1, 2, 3];
+                batch.add_font_triangles(self.font.atlas.clone(), &vertices, &indices);
+            }
+            let mut kerning: f32 = 0.0;
+            if let Some(last) = last {
+                kerning = *self.font.kernings.borrow().get(&(last, c)).unwrap_or(&0.0);
+            }
+            last = Some(c);
+            x += glyph.advance_x + kerning;
         }
     }
 }
