@@ -1,6 +1,7 @@
-use ::resources::Texture;
+use ::resources::{Texture, Font};
 use ::rendering::{DrawBatch, SpriteVertex};
 
+#[derive(Clone)]
 pub struct Image {
     texture: Texture,
     x: f32,
@@ -10,7 +11,7 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(texture: Texture, x: f32, y: f32, width: f32, height: f32) -> Image {
+    pub fn new(texture: Texture, x: f32, y: f32, width: f32, height: f32) -> Self {
         Image {
             texture: texture,
             x: x,
@@ -28,22 +29,22 @@ impl Image {
             SpriteVertex {
                 position: [x, y],
                 tex_coords: [u_min, v_min],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width, y],
                 tex_coords: [u_max, v_min],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x, y - height],
                 tex_coords: [u_min, v_max],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width, y - height],
                 tex_coords: [u_max, v_max],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
         ];
         let indices: [u32; 6] = [0, 2, 1, 1, 2, 3];
@@ -51,6 +52,7 @@ impl Image {
     }
 }
 
+#[derive(Clone)]
 pub struct BorderImage {
     texture: Texture,
     x: f32,
@@ -64,7 +66,21 @@ pub struct BorderImage {
 }
 
 impl BorderImage {
-    pub fn new(texture: Texture, x: f32, y: f32, width: f32, height: f32,
+    pub fn new(texture: Texture, border_left: f32, border_right: f32,
+               border_top: f32, border_bottom: f32) -> Self {
+        BorderImage {
+            texture: texture,
+            x: 0.0,
+            y: 0.0,
+            width: 0.0,
+            height: 0.0,
+            border_left: border_left,
+            border_right: border_right,
+            border_top: border_top,
+            border_bottom: border_bottom,
+        }
+    }
+    pub fn new_with_values(texture: Texture, x: f32, y: f32, width: f32, height: f32,
            border_left: f32, border_right: f32, border_top: f32, border_bottom: f32) -> BorderImage {
         BorderImage {
             texture: texture,
@@ -77,6 +93,20 @@ impl BorderImage {
             border_top: border_top,
             border_bottom: border_bottom,
         }
+    }
+
+    pub fn get_position(&self) -> (f32, f32) {
+        (self.x, self.y)
+    }
+
+    pub fn set_position(&mut self, x: f32, y: f32) {
+        self.x = x;
+        self.y = y;
+    }
+
+    pub fn set_size(&mut self, width: f32, height: f32) {
+        self.width = width;
+        self.height = height;
     }
 
     pub fn add_to_batch(&self, batch: &mut DrawBatch) {
@@ -92,90 +122,172 @@ impl BorderImage {
             SpriteVertex {
                 position: [x, y],
                 tex_coords: [u_min, v_min],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + left, y],
                 tex_coords: [u_min + left_u, v_min],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width - right, y],
                 tex_coords: [u_max - right_u, v_min],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width, y],
                 tex_coords: [u_max, v_min],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
 
             SpriteVertex {
                 position: [x, y - top],
                 tex_coords: [u_min, v_min + top_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + left, y - top],
                 tex_coords: [u_min + left_u, v_min + top_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width - right, y - top],
                 tex_coords: [u_max - right_u, v_min + top_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width,y - top],
                 tex_coords: [u_max, v_min + top_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
 
             SpriteVertex {
                 position: [x, y - height + bottom],
                 tex_coords: [u_min, v_max - bottom_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + left, y - height + bottom],
                 tex_coords: [u_min + left_u, v_max - bottom_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width - right, y - height + bottom],
                 tex_coords: [u_max - right_u, v_max - bottom_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width, y - height + bottom],
                 tex_coords: [u_max, v_max - bottom_v],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
 
             SpriteVertex {
                 position: [x, y - height],
                 tex_coords: [u_min, v_max],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + left, y - height],
                 tex_coords: [u_min + left_u, v_max],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width - right, y - height],
                 tex_coords: [u_max - right_u, v_max],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
             SpriteVertex {
                 position: [x + width, y - height],
                 tex_coords: [u_max, v_max],
-                color: [255, 255, 255, 255]
+                color: [255, 255, 255, 255],
             },
         ];
         let indices: [u32; 54] = [0, 4, 1, 1, 4, 5, 1, 5, 2, 2, 5, 6, 2, 6, 3, 3, 6, 7,
                                  4, 8, 5, 5, 8, 9, 5, 9, 6, 6, 9, 10, 6, 10, 7, 7, 10, 11,
                                  8, 12, 9, 9, 12, 13, 9, 13, 10, 10, 13, 14, 10, 14, 11, 11, 14, 15];
         batch.add_sprite_triangles(self.texture.atlas.clone(), &vertices, &indices);
+    }
+}
+
+#[derive(Clone)]
+pub struct Text {
+    font: Font,
+    text: String,
+    x: f32,
+    y: f32,
+    color: (u8, u8, u8, u8),
+    /*width: f32,
+    height: f32,*/
+}
+
+impl Text {
+    pub fn new(font: Font, text: &str) -> Self {
+        Text {
+            font: font,
+            text: text.to_string(),
+            x: 0.0,
+            y: 0.0,
+            color: (255, 255, 255, 255),
+            /*width: 0.0,
+            height: 0.0,*/
+        }
+    }
+
+    pub fn set_position(&mut self, x: f32, y: f32) {
+        self.x = x;
+        self.y = y;
+    }
+
+    pub fn set_color(&mut self, r: u8, g: u8, b: u8, a: u8) {
+        self.color = (r, g, b, a);
+    }
+
+    pub fn add_to_batch(&self, batch: &mut DrawBatch) {
+        let mut x = self.x;
+        let mut y;
+
+        for c in self.text.chars() {
+            let glyphs = self.font.glyphs.borrow();
+            let glyph = match glyphs.get(&c) {
+                Some(glyph) => glyph,
+                None => continue,
+            };
+
+            let (r, g, b, a) = (self.color.0, self.color.1, self.color.2, self.color.3);
+            let (u_min, u_max, v_min, v_max) = (glyph.uv_min.0, glyph.uv_max.0,
+                                                glyph.uv_min.1, glyph.uv_max.1);
+            let (width, height) = (glyph.width, glyph.height);
+            let (offset_x, offset_y) = glyph.offset;
+            x += offset_x;
+            y = self.y + offset_y;
+
+            let vertices = [
+                SpriteVertex {
+                    position: [x, y],
+                    tex_coords: [u_min, v_min],
+                    color: [r, g, b, a],
+                },
+                SpriteVertex {
+                    position: [x + width, y],
+                    tex_coords: [u_max, v_min],
+                    color: [r, g, b, a],
+                },
+                SpriteVertex {
+                    position: [x, y - height],
+                    tex_coords: [u_min, v_max],
+                    color: [r, g, b, a],
+                },
+                SpriteVertex {
+                    position: [x + width, y - height],
+                    tex_coords: [u_max, v_max],
+                    color: [r, g, b, a],
+                },
+            ];
+            let indices: [u32; 6] = [0, 2, 1, 1, 2, 3];
+            batch.add_font_triangles(self.font.atlas.clone(), &vertices, &indices);
+
+            x += glyph.advance_x;
+        }
     }
 }

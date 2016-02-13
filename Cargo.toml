@@ -6,6 +6,7 @@ authors = ["Max Jensen <maxjen@gmail.com>"]
 [dependencies]
 glium = "*"
 image = "*"
+rusttype = "0.1"
 
 [[bin]]
 name = "inferno_test"

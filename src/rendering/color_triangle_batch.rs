@@ -14,7 +14,7 @@ pub struct ColorTriangleBatch<'a> {
 impl<'a> ColorTriangleBatch<'a> {
     pub fn new(display: &'a glium::backend::glutin_backend::GlutinFacade, perspective: bool) -> Self {
         let vertex_shader_src = r#"
-            #version 140
+            #version 150
 
             in vec3 position;
             in vec3 normal;
@@ -33,7 +33,7 @@ impl<'a> ColorTriangleBatch<'a> {
         "#;
 
         let fragment_shader_src = r#"
-            #version 140
+            #version 150
 
             in vec3 v_normal;
             in vec3 v_position;
@@ -85,7 +85,6 @@ impl<'a> ColorTriangleBatch<'a> {
         for i in indices {
             self.indices.push(*i + index_offset);
         }
-        println!("added {} vertices and {} indices", vertices.len(), indices.len());
     }
 
     pub fn create_buffers(&mut self) {
@@ -96,81 +95,86 @@ impl<'a> ColorTriangleBatch<'a> {
     pub fn draw(&self, frame: &mut glium::Frame) {
         use glium::Surface;
 
-        if let Some(ref vertex_buffer) = self.vertex_buffer {
-            if let Some(ref index_buffer) = self.index_buffer {
-                let projection = if self.perspective {
-                    let (width, height) = frame.get_dimensions();
-                    let aspect_ratio = height as f32 / width as f32;
+        let vertex_buffer = match self.vertex_buffer {
+            Some(ref vertex_buffer) => vertex_buffer,
+            None => return,
+        };
+        let index_buffer = match self.index_buffer {
+            Some(ref index_buffer) => index_buffer,
+            None => return,
+        };
 
-                    let fov: f32 = 3.141592 / 3.0;
-                    let zfar = 1024.0;
-                    let znear = 0.1;
+        let projection = if self.perspective {
+            let (width, height) = frame.get_dimensions();
+            let aspect_ratio = height as f32 / width as f32;
 
-                    let f = 1.0 / (fov / 2.0).tan();
+            let fov: f32 = 3.141592 / 3.0;
+            let zfar = 1024.0;
+            let znear = 0.1;
 
-                    [
-                        [f * aspect_ratio, 0.0, 0.0, 0.0],
-                        [0.0, f, 0.0, 0.0],
-                        [0.0, 0.0, (zfar + znear) / (zfar - znear), 1.0],
-                        [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
-                    ]
-                } else {
-                    let (width, height) = frame.get_dimensions();
-                    let r: f32 = width as f32 / 2.0;
-                    let t: f32 = height as f32 / 2.0;
-                    let n: f32 = 128.0;
-                    let f: f32 = -128.0;
-                    [
-                        [1.0f32 / r, 0.0, 0.0, 0.0],
-                        [0.0, 1.0 / t, 0.0, 0.0],
-                        [0.0, 0.0, - 2.0 / (f - n), - (f + n) / (f - n)],
-                        [0.0, 0.0, 0.0, 1.0],
-                        /*[1.0, 0.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0f32],*/
-                    ]
-                };
+            let f = 1.0 / (fov / 2.0).tan();
 
-                let matrix =  if self.perspective {
-                    [
-                        [0.01, 0.0, 0.0, 0.0],
-                        [0.0, 0.01, 0.0, 0.0],
-                        [0.0, 0.0, 0.01, 0.0],
-                        [0.0, 0.0, 2.0, 1.0f32]
-                    ]
-                } else {
-                    [
-                        [1.0, 0.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0f32]
-                    ]
-                };
+            [
+                [f * aspect_ratio, 0.0, 0.0, 0.0],
+                [0.0, f, 0.0, 0.0],
+                [0.0, 0.0, (zfar + znear) / (zfar - znear), 1.0],
+                [0.0, 0.0, -(2.0 * zfar * znear) / (zfar - znear), 0.0],
+            ]
+        } else {
+            let (width, height) = frame.get_dimensions();
+            let r: f32 = width as f32 / 2.0;
+            let t: f32 = height as f32 / 2.0;
+            let n: f32 = 128.0;
+            let f: f32 = -128.0;
+            [
+                [1.0f32 / r, 0.0, 0.0, 0.0],
+                [0.0, 1.0 / t, 0.0, 0.0],
+                [0.0, 0.0, - 2.0 / (f - n), - (f + n) / (f - n)],
+                [0.0, 0.0, 0.0, 1.0],
+                /*[1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0f32],*/
+            ]
+        };
 
-                /*let matrix = [
-                    [0.01, 0.0, 0.0, 0.0],
-                    [0.0, 0.01, 0.0, 0.0],
-                    [0.0, 0.0, 0.01, 0.0],
-                    [0.0, 0.0, 2.0, 1.0f32]
-                ];*/
+        let matrix =  if self.perspective {
+            [
+                [0.01, 0.0, 0.0, 0.0],
+                [0.0, 0.01, 0.0, 0.0],
+                [0.0, 0.0, 0.01, 0.0],
+                [0.0, 0.0, 2.0, 1.0f32]
+            ]
+        } else {
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0f32]
+            ]
+        };
 
-                let light = [-1.0, 0.4, 0.9f32];
+        /*let matrix = [
+            [0.01, 0.0, 0.0, 0.0],
+            [0.0, 0.01, 0.0, 0.0],
+            [0.0, 0.0, 0.01, 0.0],
+            [0.0, 0.0, 2.0, 1.0f32]
+        ];*/
 
-                let params = glium::DrawParameters {
-                    depth: glium::Depth {
-                        test: glium::DepthTest::IfLess,
-                        write: true,
-                        .. Default::default()
-                    },
-                    backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
-                    .. Default::default()
-                };
+        let light = [-1.0, 0.4, 0.9f32];
 
-                frame.draw(vertex_buffer, index_buffer, &self.program,
-                           &uniform! { projection: projection, matrix: matrix, u_light: light },
-                           &params).unwrap();
-            }
-        }
+        let params = glium::DrawParameters {
+            depth: glium::Depth {
+                test: glium::DepthTest::IfLess,
+                write: true,
+                .. Default::default()
+            },
+            backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
+            .. Default::default()
+        };
+
+        frame.draw(vertex_buffer, index_buffer, &self.program,
+                   &uniform! { projection: projection, matrix: matrix, u_light: light },
+                   &params).unwrap();
     }
 }

@@ -168,10 +168,28 @@ impl TextureAtlas {
     }
 
     pub fn upload(&mut self, frame: &glium::backend::glutin_backend::GlutinFacade) {
+        use std::borrow::Cow;
+
         if self.needs_upload {
-            let image = glium::texture::RawImage2d::from_raw_rgba(self.data.clone(), (self.width as u32, self.height as u32));
-            let texture = glium::texture::Texture2d::new(frame, image).unwrap();
-            self.texture = Some(texture);
+            if self.depth == 4 {
+                let image = glium::texture::RawImage2d::from_raw_rgba(self.data.clone(), (self.width as u32, self.height as u32));
+                let texture = glium::texture::Texture2d::new(frame, image).unwrap();
+                self.texture = Some(texture);
+            } else if self.depth == 1 {
+                let mut buf = Vec::<glium::texture::RawImage1d<u8>>::new();
+                for i in 0..self.height {
+                    let row_data = Cow::Borrowed(&self.data[i * self.width..(i + 1) * self.width]);
+                    let row = glium::texture::RawImage1d {
+                        data: row_data,
+                        width: self.width as u32,
+                        format: glium::texture::ClientFormat::U8,
+                    };
+                    buf.push(row);
+                }
+                let image = glium::texture::RawImage2d::from_vec_raw1d(&buf);
+                let texture = glium::texture::Texture2d::new(frame, image).unwrap();
+                self.texture = Some(texture);
+            }
             self.needs_upload = false;
         }
     }
@@ -185,8 +203,14 @@ impl TextureAtlas {
     }*/
 
     pub fn save_to_png(&self, i: usize) {
-        let name = format!("atlas{}.png", i);
-        image::save_buffer(&Path::new(&*name), &self.data, self.width as u32, self.height as u32, image::RGBA(8)).unwrap();
+        if self.depth == 4 {
+            let name = format!("atlas{}.png", i);
+            image::save_buffer(&Path::new(&*name), &self.data, self.width as u32, self.height as u32, image::RGBA(8)).unwrap();
+        }
+        else if self.depth == 1 {
+            let name = format!("font_atlas{}.png", i);
+            image::save_buffer(&Path::new(&*name), &self.data, self.width as u32, self.height as u32, image::Gray(8)).unwrap();
+        }
     }
 
     pub fn print_skyline(&self) {

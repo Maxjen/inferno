@@ -4,7 +4,7 @@ use ::resources::TextureAtlas;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-pub struct SpriteTriangleBatch<'a> {
+pub struct FontTriangleBatch<'a> {
     display: &'a glium::backend::glutin_backend::GlutinFacade,
     pub atlas: Rc<RefCell<TextureAtlas>>,
     program: glium::Program,
@@ -14,7 +14,7 @@ pub struct SpriteTriangleBatch<'a> {
     index_buffer: Option<glium::IndexBuffer<u32>>,
 }
 
-impl<'a> SpriteTriangleBatch<'a> {
+impl<'a> FontTriangleBatch<'a> {
     pub fn new(display: &'a glium::backend::glutin_backend::GlutinFacade, atlas: Rc<RefCell<TextureAtlas>>) -> Self {
         let vertex_shader_src = r#"
             #version 150
@@ -48,11 +48,11 @@ impl<'a> SpriteTriangleBatch<'a> {
 
             void main() {
                 vec4 factor = v_color * vec4(0.00392156862, 0.00392156862, 0.00392156862, 0.00392156862);
-                color = factor * texture(tex, v_tex_coords);
+                color = factor * vec4(1.0, 1.0, 1.0, texture(tex, v_tex_coords).r);
             }
         "#;
 
-        SpriteTriangleBatch {
+        FontTriangleBatch {
             display: display,
             atlas: atlas,
             //program: glium::Program::from_source(display, vertex_shader_src, fragment_shader_src, None).unwrap(),
@@ -73,7 +73,7 @@ impl<'a> SpriteTriangleBatch<'a> {
         }
     }
 
-    pub fn add_sprite_triangles(&mut self, vertices: &[SpriteVertex], indices: &[u32]) {
+    pub fn add_font_triangles(&mut self, vertices: &[SpriteVertex], indices: &[u32]) {
         let index_offset: u32 = self.vertices.len() as u32;
         for v in vertices {
             self.vertices.push(*v);
@@ -138,10 +138,7 @@ impl<'a> SpriteTriangleBatch<'a> {
         };
 
         let atlas = self.atlas.borrow();
-        let tex = match atlas.get_texture() {
-            Some(tex) => tex,
-            None => return,
-        };
+        let tex = atlas.get_texture().unwrap();
 
         frame.draw(vertex_buffer, index_buffer, &self.program,
                    &uniform! {
