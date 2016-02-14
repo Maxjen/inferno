@@ -19,9 +19,13 @@ fn main() {
                         .build_glium().unwrap();
 
     let mut resource_manager = ResourceManager::new();
-    let inferno_logo_texture = resource_manager.create_texture("example_images/inferno-logo.png").unwrap();
+    let inferno_logo_texture = resource_manager.create_texture("example_images/inferno-logo2.png").unwrap();
 
-    let font = resource_manager.create_font("Gudea-Regular.ttf", 28).unwrap();
+    let gui_font = resource_manager.create_font("DejaVuSans.ttf", 14).unwrap();
+    gui_font.load_glyphs();
+
+    //let font = resource_manager.create_font("Gudea-Regular.ttf", 28).unwrap();
+    let font = resource_manager.create_font("DejaVuSans.ttf", 28).unwrap();
     font.load_glyphs();
     let mut text = Text::new(font.clone(), "Inferno Test");
     text.set_position(650.0, -150.0);
@@ -61,6 +65,7 @@ fn main() {
     let atlas = inferno_logo_texture.atlas.clone();
     atlas.borrow_mut().upload(&display);
 
+    gui_font.atlas.borrow_mut().upload(&display);
     font.atlas.borrow_mut().upload(&display);
 
     let mut mouse_x: i32 = 0;

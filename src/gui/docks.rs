@@ -1,5 +1,5 @@
-use super::{Widget, Rectangle, EventListener, BorderImage};
-use ::resources::{ResourceManager, Texture};
+use super::{Widget, Rectangle, EventListener, BorderImage, Text};
+use ::resources::{ResourceManager, Texture, Font};
 use ::rendering::DrawBatch;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -243,7 +243,6 @@ impl DockGroup {
 
     fn add_dock(&mut self, dock: Rc<RefCell<Dock>>) {
         dock.borrow_mut().set_group_id(Some(self.id));
-        dock.borrow_mut().set_tab_dimensions(70, 20);
         self.docks.push(dock);
     }
 
@@ -282,7 +281,7 @@ impl DockCell for DockGroup {
         let mut offset_x = 5;
         for d in self.docks.iter() {
             d.borrow_mut().set_tab_position(x + offset_x, y);
-            offset_x += 78;
+            offset_x += d.borrow().get_tab_width() + 8;
         }
         /*self.dock_tab_selected.set_position((x - 2 + 5) as f32, (y + 1) as f32);
         self.dock_tab_deselected.set_position((x - 2 + 83) as f32, (y + 1) as f32);*/
@@ -402,23 +401,28 @@ pub struct Dock {
     widget: Option<Rc<RefCell<Widget>>>,
     tab_rect: Rectangle,
     is_selected: bool,
+    label: Text,
     dock_tab_selected: BorderImage,
     dock_tab_deselected: BorderImage,
     dont_draw: bool,
 }
 
 impl Dock {
-    fn new(id: u32, dock_tab_selected: Texture, dock_tab_deselected: Texture) -> Dock {
-        Dock {
+    fn new(id: u32, font: Font, label: &str, dock_tab_selected: Texture, dock_tab_deselected: Texture) -> Dock {
+        let mut result = Dock {
             id: id,
             group_id: None,
             widget: None,
             tab_rect: Rectangle::new(),
             is_selected: true,
+            label: Text::new(font.clone(), label),
             dock_tab_selected: BorderImage::new(dock_tab_selected, 5.0, 5.0, 0.0, 0.0),
             dock_tab_deselected: BorderImage::new(dock_tab_deselected, 5.0, 5.0, 0.0, 0.0),
             dont_draw: false,
-        }
+        };
+        let width = result.label.get_width() as i32 + 16;
+        result.set_tab_dimensions(width, 20);
+        result
     }
 
     fn set_group_id(&mut self, group_id: Option<u32>) {
@@ -427,6 +431,7 @@ impl Dock {
 
     fn set_tab_position(&mut self, x: i32, y: i32) {
         self.tab_rect.position = (x, y);
+        self.label.set_position(x as f32 + 8.0, y as f32 - 15.0);
         self.dock_tab_selected.set_position(x as f32 - 2.0, y as f32 + 1.0);
         self.dock_tab_deselected.set_position(x as f32 - 2.0, y as f32 + 1.0);
     }
@@ -441,8 +446,12 @@ impl Dock {
         self.dont_draw = dont_draw;
     }
 
-    fn get_border_image_clone(&self) -> BorderImage {
-        self.dock_tab_selected.clone()
+    fn get_tab_width(&self) -> i32 {
+        self.tab_rect.dimensions.0
+    }
+
+    fn get_visual_clone(&self) -> (Text, BorderImage) {
+        (self.label.clone(), self.dock_tab_selected.clone())
     }
 
     fn add_to_batch(&self, batch: &mut DrawBatch) {
@@ -452,6 +461,7 @@ impl Dock {
             } else {
                 self.dock_tab_deselected.add_to_batch(batch);
             }
+            self.label.add_to_batch(batch);
         }
     }
 }
@@ -461,6 +471,7 @@ struct MoveDock {
     dock_id: u32,
     mouse_pos: (i32, i32),
     tabs_rect: Option<Rectangle>,
+    label: Text,
     border_image: BorderImage,
     border_image_offset: (f32, f32),
 }
@@ -470,13 +481,14 @@ impl MoveDock {
         let tabs_rect = root_widget.borrow().get_dock_tabs_rect(dock_id);
         let dock = root_widget.borrow().docks.get(&dock_id).unwrap().clone();
         dock.borrow_mut().set_dont_draw(true);
-        let border_image = dock.borrow().get_border_image_clone();
+        let (label, border_image) = dock.borrow().get_visual_clone();
         let border_image_position = border_image.get_position();
         MoveDock {
             root_widget: root_widget,
             dock_id: dock_id,
             mouse_pos: (mouse_x, mouse_y),
             tabs_rect: tabs_rect,
+            label: label,
             border_image: border_image,
             border_image_offset: (border_image_position.0 - mouse_x as f32, border_image_position.1 + mouse_y as f32),
         }
@@ -510,8 +522,10 @@ impl EventListener for MoveDock {
                 if let Some(ref tabs_rect) = self.tabs_rect {
                     self.root_widget.borrow_mut().move_dock_to_position(self.dock_id, x);
                     self.border_image.set_position(x as f32 + self.border_image_offset.0, tabs_rect.position.1 as f32 + 1.0);
+                    self.label.set_position(x as f32 + self.border_image_offset.0 + 10.0, tabs_rect.position.1 as f32 - 15.0);
                 } else {
                     self.border_image.set_position(x as f32 + self.border_image_offset.0, -y as f32 + self.border_image_offset.1);
+                    self.label.set_position(x as f32 + self.border_image_offset.0 + 10.0, -y as f32 + self.border_image_offset.1 - 16.0);
                 }
                 self.mouse_pos = (x, y);
             }
@@ -534,6 +548,7 @@ impl EventListener for MoveDock {
 
     fn add_to_batch(&self, batch: &mut DrawBatch) {
         self.border_image.add_to_batch(batch);
+        self.label.add_to_batch(batch);
     }
 }
 
@@ -576,6 +591,7 @@ pub struct Docks {
     docks: HashMap<u32, Rc<RefCell<Dock>>>,
     dock_table_root: Option<Rc<RefCell<DockTable>>>,
 
+    font: Font,
     dock_background: Texture,
     dock_tab_selected: Texture,
     dock_tab_deselected: Texture,
@@ -600,6 +616,7 @@ impl Docks {
             /*dock_background: BorderImage::new(bg_texture, 3.0, 3.0, 2.0, 4.0),
             dock_tab_selected: BorderImage::new(selected_texture, 5.0, 5.0, 0.0, 0.0),
             dock_tab_deselected: BorderImage::new(deselected_texture, 5.0, 5.0, 0.0, 0.0),*/
+            font: resource_manager.create_font("DejaVuSans.ttf", 14).unwrap(),
             dock_background: resource_manager.create_texture("example_images/dock.png").unwrap(),
             dock_tab_selected: resource_manager.create_texture("example_images/dock_tab_selected.png").unwrap(),
             dock_tab_deselected: resource_manager.create_texture("example_images/dock_tab_deselected.png").unwrap(),
@@ -627,9 +644,9 @@ impl Docks {
         result
     }
 
-    pub fn create_dock(&mut self) -> Rc<RefCell<Dock>> {
+    pub fn create_dock(&mut self, label: &str) -> Rc<RefCell<Dock>> {
         let result = Rc::new(RefCell::new(
-            Dock::new(self.index_pool.get_index(), self.dock_tab_selected.clone(), self.dock_tab_deselected.clone())
+            Dock::new(self.index_pool.get_index(), self.font.clone(), label, self.dock_tab_selected.clone(), self.dock_tab_deselected.clone())
         ));
         self.docks.insert(result.borrow().id, result.clone());
         result
@@ -885,12 +902,12 @@ impl Docks {
     }
 
     pub fn add_test_docks(&mut self) {
-        let dock1 = self.create_dock();
-        let dock2 = self.create_dock();
-        let dock3 = self.create_dock();
-        let dock4 = self.create_dock();
-        let dock5 = self.create_dock();
-        let dock6 = self.create_dock();
+        let dock1 = self.create_dock("Tools");
+        let dock2 = self.create_dock("Tools2");
+        let dock3 = self.create_dock("View");
+        let dock4 = self.create_dock("Properties");
+        let dock5 = self.create_dock("Dock5");
+        let dock6 = self.create_dock("Dock6");
 
         let d_table_left = self.create_dock_table(true);
         let d1_left = self.create_dock_group();

@@ -217,21 +217,38 @@ pub struct Text {
     x: f32,
     y: f32,
     color: (u8, u8, u8, u8),
-    /*width: f32,
-    height: f32,*/
+    width: f32,
+    //height: f32,
 }
 
 impl Text {
     pub fn new(font: Font, text: &str) -> Self {
-        Text {
+        let mut result = Text {
             font: font,
             text: text.to_string(),
             x: 0.0,
             y: 0.0,
             color: (255, 255, 255, 255),
-            /*width: 0.0,
-            height: 0.0,*/
+            width: 0.0,
+            //height: 0.0,
+        };
+        let mut width = 0.0;
+        let mut last = None;
+        for c in text.chars() {
+            let glyphs = result.font.glyphs.borrow();
+            let glyph = match glyphs.get(&c) {
+                Some(glyph) => glyph,
+                None => continue,
+            };
+            let mut kerning: f32 = 0.0;
+            if let Some(last) = last {
+                kerning = *result.font.kernings.borrow().get(&(last, c)).unwrap_or(&0.0);
+            }
+            last = Some(c);
+            width += glyph.advance_x + kerning;
         }
+        result.width = width;
+        result
     }
 
     pub fn set_position(&mut self, x: f32, y: f32) {
@@ -243,9 +260,63 @@ impl Text {
         self.color = (r, g, b, a);
     }
 
+    pub fn get_width(&self) -> f32 {
+        self.width
+    }
+
+    fn add_letter(&self, letter: char, x: f32, shadow: bool, batch: &mut DrawBatch) {
+        let glyphs = self.font.glyphs.borrow();
+        let glyph = match glyphs.get(&letter) {
+            Some(glyph) => glyph,
+            None => return,
+        };
+
+        let (r, g, b, a) = match shadow {
+            true => (0, 0, 0, 255),
+            false => (self.color.0, self.color.1, self.color.2, self.color.3),
+        };
+        let (u_min, u_max, v_min, v_max) = (glyph.uv_min.0, glyph.uv_max.0,
+                                            glyph.uv_min.1, glyph.uv_max.1);
+        let (width, height) = (glyph.width, glyph.height);
+        let (offset_x, offset_y) = glyph.offset;
+        let x = x + offset_x;
+        let mut y = self.y + offset_y;
+
+        if shadow {
+            y -= 1.0;
+        }
+
+        if width != 0.0 {
+            let vertices = [
+                SpriteVertex {
+                    position: [x, y],
+                    tex_coords: [u_min, v_min],
+                    color: [r, g, b, a],
+                },
+                SpriteVertex {
+                    position: [x + width, y],
+                    tex_coords: [u_max, v_min],
+                    color: [r, g, b, a],
+                },
+                SpriteVertex {
+                    position: [x, y - height],
+                    tex_coords: [u_min, v_max],
+                    color: [r, g, b, a],
+                },
+                SpriteVertex {
+                    position: [x + width, y - height],
+                    tex_coords: [u_max, v_max],
+                    color: [r, g, b, a],
+                },
+            ];
+            let indices: [u32; 6] = [0, 2, 1, 1, 2, 3];
+            batch.add_font_triangles(self.font.atlas.clone(), &vertices, &indices);
+        }
+    }
+
     pub fn add_to_batch(&self, batch: &mut DrawBatch) {
         let mut x = self.x;
-        let mut y;
+        //let mut y;
 
         let mut last = None;
         for c in self.text.chars() {
@@ -255,15 +326,24 @@ impl Text {
                 None => continue,
             };
 
-            let (r, g, b, a) = (self.color.0, self.color.1, self.color.2, self.color.3);
+            /*let (r, g, b, a) = (self.color.0, self.color.1, self.color.2, self.color.3);
             let (u_min, u_max, v_min, v_max) = (glyph.uv_min.0, glyph.uv_max.0,
                                                 glyph.uv_min.1, glyph.uv_max.1);
             let (width, height) = (glyph.width, glyph.height);
-            let (offset_x, offset_y) = glyph.offset;
-            x += offset_x;
-            y = self.y + offset_y;
+            let (offset_x, offset_y) = glyph.offset;*/
 
-            if width != 0.0 {
+            let mut kerning: f32 = 0.0;
+            if let Some(last) = last {
+                kerning = *self.font.kernings.borrow().get(&(last, c)).unwrap_or(&0.0);
+            }
+            x += kerning;
+            //y = self.y + offset_y;
+
+            self.add_letter(c, x, true, batch);
+            self.add_letter(c, x, false, batch);
+
+            /*if width != 0.0 {
+                let x = x + offset_x;
                 let vertices = [
                     SpriteVertex {
                         position: [x, y],
@@ -288,13 +368,10 @@ impl Text {
                 ];
                 let indices: [u32; 6] = [0, 2, 1, 1, 2, 3];
                 batch.add_font_triangles(self.font.atlas.clone(), &vertices, &indices);
-            }
-            let mut kerning: f32 = 0.0;
-            if let Some(last) = last {
-                kerning = *self.font.kernings.borrow().get(&(last, c)).unwrap_or(&0.0);
-            }
+            }*/
+
             last = Some(c);
-            x += glyph.advance_x + kerning;
+            x += glyph.advance_x;
         }
     }
 }
