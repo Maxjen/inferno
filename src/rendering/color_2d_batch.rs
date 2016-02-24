@@ -1,29 +1,31 @@
 use glium;
-use super::vertex::SpriteVertex;
-use ::resources::TextureAtlas;
-use std::rc::Rc;
-use std::cell::RefCell;
+use super::vertex::ColorVertex2d;
 
-pub struct SpriteTriangleBatch<'a> {
+#[derive(PartialEq, Copy, Clone)]
+pub enum PolygonMode {
+    Point,
+    Line,
+    Triangle,
+}
+
+pub struct Color2dBatch<'a> {
     display: &'a glium::backend::glutin_backend::GlutinFacade,
-    pub atlas: Rc<RefCell<TextureAtlas>>,
+    polygon_mode: PolygonMode,
     program: glium::Program,
-    vertices: Vec<SpriteVertex>,
+    vertices: Vec<ColorVertex2d>,
     indices: Vec<u32>,
-    vertex_buffer: Option<glium::VertexBuffer<SpriteVertex>>,
+    vertex_buffer: Option<glium::VertexBuffer<ColorVertex2d>>,
     index_buffer: Option<glium::IndexBuffer<u32>>,
 }
 
-impl<'a> SpriteTriangleBatch<'a> {
-    pub fn new(display: &'a glium::backend::glutin_backend::GlutinFacade, atlas: Rc<RefCell<TextureAtlas>>) -> Self {
+impl<'a> Color2dBatch<'a> {
+    pub fn new(display: &'a glium::backend::glutin_backend::GlutinFacade, polygon_mode: PolygonMode) -> Self {
         let vertex_shader_src = r#"
             #version 150
 
             in vec2 position;
-            in vec2 tex_coords;
             in vec4 color;
 
-            out vec2 v_tex_coords;
             out vec4 v_color;
 
             uniform mat4 projection;
@@ -31,15 +33,13 @@ impl<'a> SpriteTriangleBatch<'a> {
 
             void main() {
                 gl_Position = projection * matrix * vec4(position, 0.0, 1.0);
-                v_tex_coords = tex_coords;
-                v_color = color * vec4(0.00392156862, 0.00392156862, 0.00392156862, 0.00392156862);
+                v_color = color * vec4(0.00392156862, 0.00392156862, 0.00392156862, 0.00392156862);;
             }
         "#;
 
         let fragment_shader_src = r#"
             #version 150
 
-            in vec2 v_tex_coords;
             in vec4 v_color;
 
             out vec4 color;
@@ -47,13 +47,13 @@ impl<'a> SpriteTriangleBatch<'a> {
             uniform sampler2D tex;
 
             void main() {
-                color = v_color * texture(tex, v_tex_coords);
+                color = v_color;
             }
         "#;
 
-        SpriteTriangleBatch {
+        Color2dBatch {
             display: display,
-            atlas: atlas,
+            polygon_mode: polygon_mode,
             //program: glium::Program::from_source(display, vertex_shader_src, fragment_shader_src, None).unwrap(),
             program: glium::Program::new(display, glium::program::ProgramCreationInput:: SourceCode {
                 vertex_shader: vertex_shader_src,
@@ -68,15 +68,18 @@ impl<'a> SpriteTriangleBatch<'a> {
             vertices: Vec::new(),
             indices: Vec::new(),
             vertex_buffer: None,
-            index_buffer: None
+            index_buffer: None,
         }
     }
 
-    pub fn add_sprite_triangles(&mut self, vertices: &[SpriteVertex], indices: &[u32]) {
+    pub fn get_polygon_mode(&self) -> PolygonMode {
+        self.polygon_mode
+    }
+
+    pub fn add_color_vertices(&mut self, vertices: &[ColorVertex2d], indices: &[u32]) {
         let index_offset: u32 = self.vertices.len() as u32;
         for v in vertices {
             self.vertices.push(*v);
-            //println!("{} {} {}", v.position[0], v.position[1], v.position[2]);
         }
         for i in indices {
             self.indices.push(*i + index_offset);
@@ -85,7 +88,11 @@ impl<'a> SpriteTriangleBatch<'a> {
 
     pub fn create_buffers(&mut self) {
         self.vertex_buffer = Some(glium::VertexBuffer::new(self.display, &self.vertices).unwrap());
-        self.index_buffer = Some(glium::IndexBuffer::new(self.display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap());
+        self.index_buffer = match self.polygon_mode {
+            PolygonMode::Point => Some(glium::IndexBuffer::new(self.display, glium::index::PrimitiveType::Points, &self.indices).unwrap()),
+            PolygonMode::Line => Some(glium::IndexBuffer::new(self.display, glium::index::PrimitiveType::LinesList, &self.indices).unwrap()),
+            PolygonMode::Triangle => Some(glium::IndexBuffer::new(self.display, glium::index::PrimitiveType::TrianglesList, &self.indices).unwrap()),
+        };
     }
 
     pub fn draw(&self, frame: &mut glium::Frame) {
@@ -132,21 +139,15 @@ impl<'a> SpriteTriangleBatch<'a> {
                 .. Default::default()
             },
             blend: glium::Blend::alpha_blending(),
+            point_size: Some(3.0),
             backface_culling: glium::draw_parameters::BackfaceCullingMode::CullClockwise,
             .. Default::default()
-        };
-
-        let atlas = self.atlas.borrow();
-        let tex = match atlas.get_texture() {
-            Some(tex) => tex,
-            None => return,
         };
 
         frame.draw(vertex_buffer, index_buffer, &self.program,
                    &uniform! {
                        projection: projection,
-                       matrix: matrix,
-                       tex: tex.sampled().magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest)
+                       matrix: matrix
                    },
                    &params).unwrap();
     }

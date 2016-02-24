@@ -8,6 +8,14 @@ pub struct SpriteVertex {
 implement_vertex!(SpriteVertex, position, tex_coords, color);
 
 #[derive(Copy, Clone)]
+pub struct ColorVertex2d {
+    pub position: [f32; 2],
+    pub color: [u8; 4],
+}
+
+implement_vertex!(ColorVertex2d, position, color);
+
+#[derive(Copy, Clone)]
 pub struct ColorVertex {
     pub position: [f32; 3],
     pub normal: [f32; 3],

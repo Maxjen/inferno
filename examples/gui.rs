@@ -3,10 +3,11 @@ extern crate glium;
 extern crate image;
 extern crate inferno;
 
+#[path = "data/teapot.rs"]
 mod teapot;
 
 use inferno::resources::{ResourceManager, Font};
-use inferno::rendering::{DrawBatch, ColorVertex};
+use inferno::rendering::{DrawBatch, ColorVertex2d, ColorVertex};
 use inferno::gui::{EventListener, Image, Text, Window, Button, Docks};
 
 use std::rc::Rc;

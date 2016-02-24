@@ -176,11 +176,9 @@ impl Font {
                 let kerning1 = font.pair_kerning(scale, c, *c_other);
                 let kerning2 = font.pair_kerning(scale, *c_other, c);
                 if kerning1 != 0.0 {
-                    print!("{:.10} ", kerning1);
                     self.kernings.borrow_mut().insert((c, *c_other), kerning1);
                 }
                 if kerning2 != 0.0 {
-                    print!("{:.10} ", kerning2);
                     self.kernings.borrow_mut().insert((*c_other, c), kerning2);
                 }
             }
