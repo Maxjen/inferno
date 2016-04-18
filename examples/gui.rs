@@ -96,7 +96,7 @@ fn main() {
         for ev in display.poll_events() {
             match ev {
                 Event::Closed => return,
-                Event::MouseMoved((x, y)) => {
+                Event::MouseMoved(x, y) => {
                     mouse_x = x;
                     mouse_y = y;
                     if let Some(ref mut event_listener) = event_listener {

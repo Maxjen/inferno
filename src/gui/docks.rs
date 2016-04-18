@@ -498,7 +498,7 @@ impl MoveDock {
 impl EventListener for MoveDock {
     fn handle_event(&mut self, event: Event) -> bool {
         match event {
-            Event::MouseMoved((x, y)) => {
+            Event::MouseMoved(x, y) => {
                 let mut remove_tabs_rect = false;
                 if let Some(ref tabs_rect) = self.tabs_rect {
                     if !tabs_rect.contains(x, y) {
